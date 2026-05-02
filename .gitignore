@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Build outputs and generated blockchain artifacts
+dist/
+frontend/dist/
+cache/
+artifacts/
+typechain-types/
+
+# Logs and local environment
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+*.local
+.env
+
+# Editor and OS files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db

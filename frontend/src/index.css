@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply text-civic-primary bg-civic-bg min-h-screen font-sans antialiased text-base;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-heading;
+  }
+}
+
+/* Accessible focus states */
+*:focus-visible {
+  outline: 2px solid #1E56C8;
+  outline-offset: 2px;
+}
