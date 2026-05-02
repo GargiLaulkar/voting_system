@@ -1,102 +1,105 @@
-import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { Badge } from '../components/ui/Badge';
+import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
+import { useToast } from '../components/ui/Toast';
+import { useWallet } from '../context/WalletContext';
+import { elections } from '../lib/mockData';
 
-const VoteCasting = () => {
+type Phase = 'select' | 'review' | 'pending' | 'success';
+
+const initials = (name: string) => name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase();
+
+export default function VoteCasting() {
   const { id } = useParams();
-  const [selectedCandidate, setSelectedCandidate] = useState<number | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [receipt, setReceipt] = useState<string | null>(null);
+  const election = elections.find((item) => String(item.id) === id);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [phase, setPhase] = useState<Phase>('select');
+  const [receipt, setReceipt] = useState('');
+  const wallet = useWallet();
+  const { showToast } = useToast();
 
-  const mockCandidates = [
-    { id: 1, name: "Alice Johnson", party: "Progressive Party" },
-    { id: 2, name: "Bob Smith", party: "Conservative Party" },
-    { id: 3, name: "Carol Davis", party: "Independent" }
-  ];
+  const candidate = useMemo(() => election?.candidates.find((item) => item.id === selected), [election, selected]);
+  const totalVotes = election?.candidates.reduce((sum, item) => sum + item.votes, 0) ?? 0;
 
-  const handleVoteSubmit = () => {
-    if (selectedCandidate === null) return;
-    setIsSubmitting(true);
-    
-    // Simulate encryption and blockchain tx
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setReceipt("0x8f3a9b2c...d7e4f1a2");
-    }, 2000);
+  if (!election) {
+    return <Card className="p-8"><h1 className="text-2xl font-bold">Election not found</h1><Link className="mt-4 inline-flex text-civic-accent" to="/elections">Return to elections</Link></Card>;
+  }
+
+  if (election.eligibility === 'Already Voted') {
+    return <Card className="mx-auto max-w-2xl p-8 text-center"><h1 className="text-2xl font-bold">You have already voted in this election</h1><p className="mt-3 text-slate-600">The nullifier for your credential already exists on-chain, so another vote cannot be submitted.</p><Link className="mt-5 inline-flex font-semibold text-civic-accent" to={`/elections/${election.id}/results`}>View Results</Link></Card>;
+  }
+
+  const submit = () => {
+    if (!candidate) {
+      showToast('error', 'Select a candidate before review.');
+      return;
+    }
+    setPhase('pending');
+    window.setTimeout(() => {
+      const hash = `0x${crypto.getRandomValues(new Uint32Array(8)).reduce((value, part) => value + part.toString(16).padStart(8, '0'), '')}`;
+      setReceipt(hash);
+      setPhase('success');
+      showToast('success', 'Encrypted vote submitted');
+    }, 1600);
   };
 
-  if (receipt) {
+  if (phase === 'success') {
     return (
-      <div className="max-w-2xl mx-auto py-12 px-4 text-center">
-        <div className="bg-white shadow-sm rounded-xl border border-gray-100 p-8">
-          <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-          </div>
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">Vote Cast Successfully</h2>
-          <p className="text-gray-600 mb-6">Your vote has been encrypted and recorded on the blockchain.</p>
-          
-          <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 mb-8 text-left">
-            <p className="text-sm text-gray-500 font-medium mb-1">Your Vote Receipt Hash:</p>
-            <p className="text-sm font-mono text-gray-900 break-all">{receipt}</p>
-          </div>
-
-          <p className="text-sm text-gray-500">Save this receipt. You can use it to verify your vote is in the final tally without revealing your choice.</p>
-        </div>
-      </div>
+      <Card className="mx-auto max-w-3xl p-8">
+        <Badge status="Active" />
+        <h1 className="mt-4 text-3xl font-bold">Vote Cast Successfully</h1>
+        <p className="mt-3 text-slate-600">Your vote was encrypted client-side and recorded with a receipt hash.</p>
+        <dl className="mt-6 space-y-3 rounded-xl bg-slate-50 p-5 text-sm">
+          <div><dt className="font-semibold">Transaction Hash</dt><dd className="break-all font-mono"><a className="text-civic-accent" href={`http://127.0.0.1:8545/tx/${receipt}`}>{receipt}</a></dd></div>
+          <div><dt className="font-semibold">Merkle Proof</dt><dd><Link className="text-civic-accent" to={`/verify/${receipt}`}>Open receipt verification</Link></dd></div>
+          <div><dt className="font-semibold">Timestamp</dt><dd>{new Date().toLocaleString()}</dd></div>
+        </dl>
+      </Card>
     );
   }
 
   return (
-    <div className="max-w-3xl mx-auto py-8 px-4">
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">Cast Your Vote</h1>
-      <p className="text-gray-500 mb-8">Election ID: {id}</p>
-
-      <div className="bg-white shadow-sm rounded-xl border border-gray-100 overflow-hidden">
-        <div className="p-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-6">Select a Candidate</h3>
-          
-          <div className="space-y-4">
-            {mockCandidates.map((candidate) => (
-              <label 
-                key={candidate.id} 
-                className={`flex items-center p-4 border rounded-lg cursor-pointer transition-all ${selectedCandidate === candidate.id ? 'border-civic-blue bg-blue-50 ring-1 ring-civic-blue' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
-              >
-                <input 
-                  type="radio" 
-                  name="candidate" 
-                  className="h-5 w-5 text-civic-blue focus:ring-civic-blue border-gray-300"
-                  checked={selectedCandidate === candidate.id}
-                  onChange={() => setSelectedCandidate(candidate.id)}
-                />
-                <div className="ml-4 flex-1">
-                  <div className="text-lg font-medium text-gray-900">{candidate.name}</div>
-                  <div className="text-sm text-gray-500">{candidate.party}</div>
-                </div>
-              </label>
-            ))}
-          </div>
-
-          <div className="mt-8 pt-6 border-t border-gray-200 flex justify-between items-center">
-            <button className="text-gray-600 hover:text-gray-900 font-medium">Cancel</button>
-            <button 
-              onClick={handleVoteSubmit}
-              disabled={selectedCandidate === null || isSubmitting}
-              className={`px-6 py-3 rounded-md font-medium text-white transition-all flex items-center justify-center ${selectedCandidate === null || isSubmitting ? 'bg-gray-300 cursor-not-allowed' : 'bg-civic-blue hover:bg-blue-700 shadow-sm'}`}
-            >
-              {isSubmitting ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Encrypting & Submitting...
-                </>
-              ) : 'Submit Encrypted Vote'}
-            </button>
-          </div>
-        </div>
+    <div className="space-y-6">
+      <div>
+        <Badge status={election.status} />
+        <h1 className="mt-3 text-3xl font-bold">{election.title}</h1>
+        <p className="mt-2 text-slate-600">{election.description}</p>
+        <p className="mt-2 text-sm font-semibold text-civic-accent" aria-live="polite">{totalVotes.toLocaleString()} encrypted ballots recorded so far</p>
       </div>
+      <Card className="p-6">
+        {phase === 'select' && (
+          <>
+            <div className="mb-5 rounded-lg bg-blue-50 p-3 text-sm font-semibold text-civic-accent">Your vote is encrypted client-side before submission.</div>
+            <div className="grid gap-4 md:grid-cols-3">
+              {election.candidates.map((item) => (
+                <button key={item.id} type="button" onClick={() => setSelected(item.id)} className={`rounded-xl border p-5 text-left transition ${selected === item.id ? 'border-civic-accent bg-blue-50 ring-2 ring-civic-accent' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-civic-primary font-bold text-white" aria-label={`${item.name} avatar`}>{initials(item.name)}</span>
+                  <h2 className="mt-4 text-lg font-bold">{item.name}</h2>
+                  <p className="text-sm font-semibold text-slate-500">{item.party}</p>
+                  <p className="mt-3 text-sm leading-6 text-slate-600">{item.manifesto}</p>
+                  {selected === item.id && <p className="mt-3 font-semibold text-civic-accent">✓ Selected</p>}
+                </button>
+              ))}
+            </div>
+            <div className="mt-6 flex justify-end">
+              <Button disabled={!wallet.isConnected || !selected} onClick={() => setPhase('review')}>{wallet.isConnected ? 'Review Vote' : 'Connect wallet to vote'}</Button>
+            </div>
+          </>
+        )}
+        {phase === 'review' && candidate && (
+          <div>
+            <h2 className="text-2xl font-bold">Review Encrypted Ballot</h2>
+            <p className="mt-3 text-slate-600">Selected candidate: <strong>{candidate.name}</strong></p>
+            <div className="mt-6 flex justify-between gap-3">
+              <Button variant="secondary" onClick={() => setPhase('select')}>Back</Button>
+              <Button onClick={submit}>Submit Encrypted Vote</Button>
+            </div>
+          </div>
+        )}
+        {phase === 'pending' && <div className="py-12 text-center"><p className="text-xl font-bold">Awaiting MetaMask transaction confirmation...</p><p className="mt-2 text-slate-600">Do not close this window while the transaction is pending.</p></div>}
+      </Card>
     </div>
   );
-};
-
-export default VoteCasting;
+}

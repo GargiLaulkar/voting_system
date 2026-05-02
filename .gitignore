@@ -8,6 +8,7 @@ frontend/dist/
 cache/
 artifacts/
 typechain-types/
+.hardhat-global/
 
 # Logs and local environment
 logs/

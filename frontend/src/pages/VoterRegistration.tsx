@@ -1,84 +1,125 @@
-import React, { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
+import { Stepper } from '../components/ui/Stepper';
+import { useToast } from '../components/ui/Toast';
+import { useWallet } from '../context/WalletContext';
+import { truncateAddress } from '../lib/mockData';
 
-const VoterRegistration = () => {
+const steps = ['Connect Wallet', 'Verify Identity', 'Receive Credential'];
+
+export default function VoterRegistration() {
   const [step, setStep] = useState(1);
+  const [form, setForm] = useState({ name: '', dob: '', nationalId: '' });
+  const [verifying, setVerifying] = useState(false);
+  const [verified, setVerified] = useState(false);
+  const wallet = useWallet();
+  const { showToast } = useToast();
+
+  const credential = useMemo(
+    () => ({
+      voterIdHash: wallet.address ? `0x${btoa(wallet.address).replace(/[^a-fA-F0-9]/g, '').padEnd(64, '0').slice(0, 64)}` : 'Not generated',
+      issuedAt: new Date().toISOString(),
+      walletAddress: wallet.address ?? 'Not connected',
+      network: wallet.networkName,
+    }),
+    [wallet.address, wallet.networkName],
+  );
+
+  const verify = () => {
+    if (!form.name || !form.dob || !form.nationalId) {
+      showToast('error', 'Complete all identity fields before verification.');
+      return;
+    }
+    setVerifying(true);
+    window.setTimeout(() => {
+      setVerifying(false);
+      setVerified(true);
+      setStep(3);
+      showToast('success', 'Identity verified');
+    }, 1200);
+  };
+
+  const downloadCredential = () => {
+    const blob = new Blob([JSON.stringify(credential, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'securevote-credential.json';
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
-    <div className="max-w-3xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-      <div className="bg-white shadow-sm sm:rounded-xl border border-gray-100 overflow-hidden">
-        <div className="px-4 py-5 sm:p-6">
-          <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate mb-6">Voter Registration</h2>
-          
-          <div className="mb-8">
-            <div className="flex items-center">
-              <div className={`flex items-center justify-center w-8 h-8 rounded-full ${step >= 1 ? 'bg-civic-blue text-white' : 'bg-gray-200 text-gray-500'} font-bold`}>1</div>
-              <div className={`flex-1 h-1 mx-2 ${step >= 2 ? 'bg-civic-blue' : 'bg-gray-200'}`}></div>
-              <div className={`flex items-center justify-center w-8 h-8 rounded-full ${step >= 2 ? 'bg-civic-blue text-white' : 'bg-gray-200 text-gray-500'} font-bold`}>2</div>
-              <div className={`flex-1 h-1 mx-2 ${step >= 3 ? 'bg-civic-blue' : 'bg-gray-200'}`}></div>
-              <div className={`flex items-center justify-center w-8 h-8 rounded-full ${step >= 3 ? 'bg-civic-blue text-white' : 'bg-gray-200 text-gray-500'} font-bold`}>3</div>
-            </div>
-            <div className="flex justify-between text-sm mt-2 text-gray-500">
-              <span>Connect Wallet</span>
-              <span>Verify Identity</span>
-              <span>Receive Credential</span>
-            </div>
-          </div>
-
+    <div className="mx-auto max-w-4xl space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Voter Registration</h1>
+        <p className="mt-2 text-slate-600">Register once, preserve privacy, and use your wallet-bound credential for eligible elections.</p>
+      </div>
+      <Card className="p-6">
+        <Stepper steps={steps} current={step} />
+        <div className="mt-8">
           {step === 1 && (
-            <div className="text-center py-8">
-              <div className="mb-6">
-                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+            <div className="grid gap-6 md:grid-cols-[1fr_0.8fr]">
+              <div>
+                <h2 className="text-2xl font-bold">Connect Wallet</h2>
+                <p className="mt-3 leading-7 text-slate-600">Your wallet signs registration actions and anchors your anonymous voting credential.</p>
+                {!window.ethereum && (
+                  <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm font-semibold text-civic-warning">
+                    MetaMask is not installed. <a className="underline" href="https://metamask.io/download/" target="_blank" rel="noreferrer">Install MetaMask</a>
+                  </p>
+                )}
+                <div className="mt-6 flex gap-3">
+                  <Button onClick={wallet.connect}>{wallet.address ? 'Reconnect Wallet' : 'Connect MetaMask'}</Button>
+                  <Button variant="secondary" onClick={() => setStep(2)} disabled={!wallet.address || wallet.isWrongNetwork}>Continue</Button>
+                </div>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Connect Your Web3 Wallet</h3>
-              <p className="text-gray-500 mb-6 max-w-md mx-auto">To participate in secure elections, you need to connect an Ethereum-compatible wallet.</p>
-              <button 
-                onClick={() => setStep(2)}
-                className="bg-civic-blue text-white px-6 py-3 rounded-md font-medium hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-civic-blue"
-              >
-                Connect MetaMask
-              </button>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
+                <p className="text-sm font-semibold text-slate-500">Wallet status</p>
+                <p className="mt-2 font-mono text-sm">{wallet.address ? truncateAddress(wallet.address) : 'Not connected'}</p>
+                <p className="mt-3 text-sm text-slate-600">Network: {wallet.networkName}</p>
+                <p className="text-sm text-slate-600">Chain ID: {wallet.chainId ?? 'Unavailable'}</p>
+                {wallet.isWrongNetwork && <Button className="mt-4" variant="secondary" onClick={wallet.switchToLocalhost}>Switch to Localhost</Button>}
+              </div>
             </div>
           )}
 
           {step === 2 && (
-            <div className="py-4">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Identity Verification (KYC Mock)</h3>
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="nationalId" className="block text-sm font-medium text-gray-700">National ID Number</label>
-                  <input type="text" id="nationalId" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-civic-blue focus:ring-civic-blue sm:text-sm p-2 border" placeholder="Enter your ID" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Biometric Scan (Simulation)</label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-md p-6 text-center">
-                    <button className="text-civic-blue hover:text-blue-700 font-medium">Click to simulate fingerprint/face scan</button>
-                  </div>
-                </div>
-                <div className="pt-4 flex justify-between">
-                  <button onClick={() => setStep(1)} className="text-gray-600 hover:text-gray-900 font-medium px-4 py-2">Back</button>
-                  <button onClick={() => setStep(3)} className="bg-civic-blue text-white px-6 py-2 rounded-md font-medium hover:bg-blue-700 transition-colors">Verify & Proceed</button>
-                </div>
+            <div className="space-y-5">
+              <h2 className="text-2xl font-bold">Verify Identity</h2>
+              <div className="grid gap-4 md:grid-cols-3">
+                <label><span className="mb-2 block text-sm font-semibold">Full Name</span><input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
+                <label><span className="mb-2 block text-sm font-semibold">Date of Birth</span><input type="date" value={form.dob} onChange={(event) => setForm({ ...form, dob: event.target.value })} /></label>
+                <label><span className="mb-2 block text-sm font-semibold">National ID Number</span><input value={form.nationalId} onChange={(event) => setForm({ ...form, nationalId: event.target.value })} /></label>
+              </div>
+              {verified && <p className="rounded-lg bg-green-50 p-3 font-semibold text-civic-success">Identity Verified ✓</p>}
+              <div className="flex justify-between gap-3">
+                <Button variant="secondary" onClick={() => setStep(1)}>Back</Button>
+                <Button loading={verifying} onClick={verify}>{verified ? 'Verified' : 'Verify Identity'}</Button>
               </div>
             </div>
           )}
 
           {step === 3 && (
-            <div className="text-center py-8">
-              <div className="mb-6">
-                <svg className="mx-auto h-16 w-16 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <div className="grid gap-6 md:grid-cols-[1fr_0.75fr]">
+              <div>
+                <h2 className="text-2xl font-bold">Credential Issued</h2>
+                <p className="mt-3 text-slate-600">Your credential can be used to prove eligibility without exposing your ballot choice.</p>
+                <div className="mt-6 flex gap-3">
+                  <Button variant="secondary" onClick={() => setStep(2)}>Back</Button>
+                  <Button onClick={downloadCredential}>Download Credential</Button>
+                </div>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Registration Complete!</h3>
-              <p className="text-gray-500 mb-6 max-w-md mx-auto">Your Zero-Knowledge identity credential has been generated. You are now securely registered and added to the Voter Merkle Tree.</p>
-              <button onClick={() => window.location.href = '/elections'} className="bg-civic-blue text-white px-8 py-3 rounded-md font-medium hover:bg-blue-700 transition-colors">
-                View Active Elections
-              </button>
+              <div className="rounded-xl border border-blue-200 bg-blue-50 p-5 text-sm">
+                <p className="font-bold text-civic-primary">SecureVote Credential</p>
+                <p className="mt-4 break-all font-mono">Hash: {credential.voterIdHash}</p>
+                <p className="mt-3">Issued: {new Date(credential.issuedAt).toLocaleString()}</p>
+                <p className="mt-3 break-all">Wallet: {credential.walletAddress}</p>
+              </div>
             </div>
           )}
-
         </div>
-      </div>
+      </Card>
     </div>
   );
-};
-
-export default VoterRegistration;
+}

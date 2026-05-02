@@ -3,8 +3,14 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    color: #0f1c3f;
+    background: #f4f6fb;
+  }
+
   body {
-    @apply text-civic-primary bg-civic-bg min-h-screen font-sans antialiased text-base;
+    @apply min-h-screen bg-civic-bg font-sans text-base antialiased;
+    margin: 0;
   }
 
   h1,
@@ -13,12 +19,61 @@
   h4,
   h5,
   h6 {
-    @apply font-heading;
+    @apply font-heading font-semibold tracking-normal text-civic-primary;
+  }
+
+  input,
+  textarea,
+  select {
+    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-civic-primary shadow-sm;
   }
 }
 
-/* Accessible focus states */
 *:focus-visible {
-  outline: 2px solid #1E56C8;
+  outline: 2px solid #1e56c8;
   outline-offset: 2px;
+}
+
+.animate-page-fade {
+  animation: pageFade 220ms ease-out;
+}
+
+.shield-chain {
+  animation: floatShield 4s ease-in-out infinite;
+}
+
+.shield-chain::after {
+  content: '';
+  position: absolute;
+  inset: 22px;
+  border: 2px dashed rgba(30, 86, 200, 0.45);
+  border-radius: 999px;
+  animation: spinChain 12s linear infinite;
+}
+
+@keyframes pageFade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes floatShield {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes spinChain {
+  to {
+    transform: rotate(360deg);
+  }
 }

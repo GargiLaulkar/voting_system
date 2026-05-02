@@ -18,6 +18,7 @@ contract BallotFactory is Initializable, AccessControlUpgradeable {
         uint256 startTime;
         uint256 endTime;
         ElectionState state;
+        bool paused;
         bool exists;
     }
 
@@ -26,6 +27,7 @@ contract BallotFactory is Initializable, AccessControlUpgradeable {
 
     event ElectionCreated(uint256 indexed electionId, string ipfsHash, uint256 startTime, uint256 endTime);
     event ElectionStateChanged(uint256 indexed electionId, ElectionState newState);
+    event ElectionPaused(uint256 indexed electionId, bool paused);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -45,7 +47,9 @@ contract BallotFactory is Initializable, AccessControlUpgradeable {
      * @param endTime End timestamp.
      */
     function createElection(string calldata ipfsHash, uint256 startTime, uint256 endTime) external onlyRole(ELECTION_OFFICER_ROLE) {
+        require(bytes(ipfsHash).length > 0, "Ballot metadata required");
         require(startTime < endTime, "Start time must be before end time");
+        require(endTime > block.timestamp, "End time must be in the future");
         
         uint256 electionId = ++electionCount;
         elections[electionId] = Election({
@@ -53,6 +57,7 @@ contract BallotFactory is Initializable, AccessControlUpgradeable {
             startTime: startTime,
             endTime: endTime,
             state: ElectionState.Draft,
+            paused: false,
             exists: true
         });
 
@@ -65,9 +70,22 @@ contract BallotFactory is Initializable, AccessControlUpgradeable {
      * @param newState The new state.
      */
     function setElectionState(uint256 electionId, ElectionState newState) external onlyRole(ELECTION_OFFICER_ROLE) {
-        require(elections[electionId].exists, "Election does not exist");
-        elections[electionId].state = newState;
+        Election storage election = elections[electionId];
+        require(election.exists, "Election does not exist");
+        require(election.state != ElectionState.Closed || newState == ElectionState.Closed, "Closed election is final");
+        if (newState == ElectionState.Active) {
+            require(block.timestamp < election.endTime, "Election has ended");
+        }
+        election.state = newState;
         emit ElectionStateChanged(electionId, newState);
+    }
+
+    function setElectionPaused(uint256 electionId, bool paused) external onlyRole(ELECTION_OFFICER_ROLE) {
+        Election storage election = elections[electionId];
+        require(election.exists, "Election does not exist");
+        require(election.state != ElectionState.Closed, "Closed election is final");
+        election.paused = paused;
+        emit ElectionPaused(electionId, paused);
     }
 
     /**
@@ -77,6 +95,7 @@ contract BallotFactory is Initializable, AccessControlUpgradeable {
         Election memory election = elections[electionId];
         return (election.exists && 
                 election.state == ElectionState.Active && 
+                !election.paused &&
                 block.timestamp >= election.startTime && 
                 block.timestamp <= election.endTime);
     }

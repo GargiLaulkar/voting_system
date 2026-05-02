@@ -26,11 +26,14 @@ contract VoteCast is Initializable, AccessControlUpgradeable {
     IBallotFactory public ballotFactory;
     IVotingRegistry public votingRegistry;
     IZKVerifier public zkVerifier;
+    uint256 private reentrancyStatus;
 
     // Mapping from election ID to nullifier hash to prevent double voting
     mapping(uint256 => mapping(bytes32 => bool)) public nullifiers;
+    mapping(uint256 => mapping(bytes32 => bytes32)) public voteReceipts;
 
-    event VoteCasted(uint256 indexed electionId, bytes32 indexed nullifierHash, string encryptedVote);
+    event VoteCasted(uint256 indexed electionId, bytes32 indexed nullifierHash, bytes32 indexed receiptHash, string encryptedVote);
+    event DependenciesUpdated(address ballotFactory, address votingRegistry, address zkVerifier);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -44,6 +47,9 @@ contract VoteCast is Initializable, AccessControlUpgradeable {
         address _zkVerifier
     ) public initializer {
         __AccessControl_init();
+        require(_ballotFactory != address(0), "Invalid ballot factory");
+        require(_votingRegistry != address(0), "Invalid voting registry");
+        require(_zkVerifier != address(0), "Invalid verifier");
         
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
         _grantRole(ADMIN_ROLE, defaultAdmin);
@@ -51,6 +57,29 @@ contract VoteCast is Initializable, AccessControlUpgradeable {
         ballotFactory = IBallotFactory(_ballotFactory);
         votingRegistry = IVotingRegistry(_votingRegistry);
         zkVerifier = IZKVerifier(_zkVerifier);
+        reentrancyStatus = 1;
+    }
+
+    modifier nonReentrant() {
+        require(reentrancyStatus != 2, "Reentrant call");
+        reentrancyStatus = 2;
+        _;
+        reentrancyStatus = 1;
+    }
+
+    function updateDependencies(
+        address _ballotFactory,
+        address _votingRegistry,
+        address _zkVerifier
+    ) external onlyRole(ADMIN_ROLE) {
+        require(_ballotFactory != address(0), "Invalid ballot factory");
+        require(_votingRegistry != address(0), "Invalid voting registry");
+        require(_zkVerifier != address(0), "Invalid verifier");
+
+        ballotFactory = IBallotFactory(_ballotFactory);
+        votingRegistry = IVotingRegistry(_votingRegistry);
+        zkVerifier = IZKVerifier(_zkVerifier);
+        emit DependenciesUpdated(_ballotFactory, _votingRegistry, _zkVerifier);
     }
 
     /**
@@ -65,7 +94,10 @@ contract VoteCast is Initializable, AccessControlUpgradeable {
         string calldata encryptedVote,
         bytes32 nullifierHash,
         bytes calldata proof
-    ) external {
+    ) external nonReentrant returns (bytes32 receiptHash) {
+        require(bytes(encryptedVote).length > 0, "Encrypted vote required");
+        require(nullifierHash != bytes32(0), "Invalid nullifier");
+        require(proof.length > 0, "Proof required");
         require(ballotFactory.isElectionActive(electionId), "Election is not active");
         require(!nullifiers[electionId][nullifierHash], "Vote already cast");
 
@@ -81,9 +113,14 @@ contract VoteCast is Initializable, AccessControlUpgradeable {
 
         require(zkVerifier.verifyProof(proof, publicSignals), "Invalid ZK Proof");
 
-        // Record the vote
         nullifiers[electionId][nullifierHash] = true;
+        receiptHash = keccak256(abi.encodePacked(electionId, nullifierHash, encryptedVote, block.chainid, address(this)));
+        voteReceipts[electionId][nullifierHash] = receiptHash;
         
-        emit VoteCasted(electionId, nullifierHash, encryptedVote);
+        emit VoteCasted(electionId, nullifierHash, receiptHash, encryptedVote);
+    }
+
+    function hasVoted(uint256 electionId, bytes32 nullifierHash) external view returns (bool) {
+        return nullifiers[electionId][nullifierHash];
     }
 }

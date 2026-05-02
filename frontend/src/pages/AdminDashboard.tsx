@@ -1,86 +1,96 @@
-import React from 'react';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Badge } from '../components/ui/Badge';
+import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
+import { Modal } from '../components/ui/Modal';
+import { StatCard } from '../components/ui/StatCard';
+import { useToast } from '../components/ui/Toast';
+import { auditEvents, contractAddresses, elections, voterRegistry } from '../lib/mockData';
 
-const AdminDashboard = () => {
+type Tab = 'elections' | 'registry' | 'audit';
+
+const icon = (path: string) => <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d={path} /></svg>;
+
+export default function AdminDashboard() {
+  const [tab, setTab] = useState<Tab>('elections');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [candidateCount, setCandidateCount] = useState(2);
+  const { showToast } = useToast();
+
+  const submit = () => {
+    setModalOpen(false);
+    showToast('success', 'Election deployment queued for wallet confirmation.');
+  };
+
   return (
-    <div className="max-w-7xl mx-auto py-8">
-      <div className="flex justify-between items-center mb-8">
+    <div className="space-y-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Election Administrator Dashboard</h1>
-          <p className="text-gray-500 mt-2">Manage elections, configure ballots, and oversee the voting process.</p>
+          <h1 className="text-3xl font-bold">Administrator Dashboard</h1>
+          <p className="mt-2 text-slate-600">Manage election lifecycle, registry state, and audit activity.</p>
         </div>
-        <button className="bg-civic-blue text-white px-6 py-2 rounded-md font-medium hover:bg-blue-700 transition-colors">
-          + Create New Election
-        </button>
+        <Button onClick={() => setModalOpen(true)}>+ Create New Election</Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <div className="text-sm font-medium text-gray-500 mb-1">Total Active Elections</div>
-          <div className="text-3xl font-bold text-gray-900">3</div>
-        </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <div className="text-sm font-medium text-gray-500 mb-1">Registered Voters</div>
-          <div className="text-3xl font-bold text-gray-900">1.2M</div>
-        </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <div className="text-sm font-medium text-gray-500 mb-1">Votes Cast Today</div>
-          <div className="text-3xl font-bold text-gray-900">45,201</div>
-        </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <div className="text-sm font-medium text-gray-500 mb-1">System Status</div>
-          <div className="text-xl font-bold text-green-500 mt-2 flex items-center">
-            <span className="w-3 h-3 rounded-full bg-green-500 mr-2"></span> Operational
-          </div>
-        </div>
+      <div className="grid gap-5 md:grid-cols-4">
+        <StatCard label="Elections" value={String(elections.length)} trend="1 active" icon={icon('M5 4h14v16H5zM8 8h8M8 12h8M8 16h5')} />
+        <StatCard label="Registered Voters" value="1.29M" trend="+2,401 today" icon={icon('M16 21v-2a4 4 0 0 0-8 0v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M20 21v-2a3 3 0 0 0-2-2.83')} />
+        <StatCard label="Votes Cast" value="1.04M" trend="Receipts synced" icon={icon('m5 13 4 4L19 7')} />
+        <StatCard label="System Status" value="Operational" trend="All contracts reachable" icon={icon('M12 3 20 7v5c0 5-3.4 8.4-8 9-4.6-.6-8-4-8-9V7l8-4Z')} />
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-6 py-5 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Manage Active Elections</h3>
+      <Card className="p-5">
+        <h2 className="text-lg font-bold">Contract Addresses</h2>
+        <div className="mt-4 grid gap-3 text-sm md:grid-cols-2">
+          {Object.entries(contractAddresses).map(([name, address]) => <p key={name} className="break-all rounded-lg bg-slate-50 p-3"><strong>{name}:</strong> {address}</p>)}
         </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Election Name</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Voters</th>
-                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              <tr>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">2026 National Presidential Election</div>
-                  <div className="text-sm text-gray-500">ID: 1</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Active</span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">1,245,032</td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button className="text-civic-blue hover:text-blue-900">Manage</button>
-                </td>
-              </tr>
-              <tr>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">City Council Initiative 42</div>
-                  <div className="text-sm text-gray-500">ID: 2</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Draft</span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">0</td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button className="text-civic-blue hover:text-blue-900">Edit</button>
-                </td>
-              </tr>
+      </Card>
+
+      <div className="flex flex-wrap gap-2">
+        {(['elections', 'registry', 'audit'] as Tab[]).map((item) => (
+          <button key={item} className={`rounded-lg px-4 py-2 text-sm font-semibold capitalize ${tab === item ? 'bg-civic-accent text-white' : 'bg-white text-slate-700 shadow-card'}`} onClick={() => setTab(item)} type="button">{item === 'registry' ? 'Voter Registry' : item}</button>
+        ))}
+      </div>
+
+      {tab === 'elections' && (
+        <Card className="overflow-hidden">
+          <table className="min-w-full divide-y divide-slate-200">
+            <thead className="bg-slate-50"><tr><th className="px-5 py-3 text-left text-sm">Election</th><th className="px-5 py-3 text-left text-sm">Status</th><th className="px-5 py-3 text-left text-sm">Voters</th><th className="px-5 py-3 text-right text-sm">Actions</th></tr></thead>
+            <tbody className="divide-y divide-slate-200">
+              {elections.map((election) => (
+                <tr key={election.id}>
+                  <td className="px-5 py-4"><p className="font-semibold">{election.title}</p><p className="text-sm text-slate-500">ID: {election.id}</p></td>
+                  <td className="px-5 py-4"><Badge status={election.status} /></td>
+                  <td className="px-5 py-4 text-sm">{election.registeredVoters.toLocaleString()}</td>
+                  <td className="px-5 py-4 text-right"><div className="flex justify-end gap-2"><Button variant="secondary">{election.paused ? 'Resume' : 'Pause'}</Button><Link className="inline-flex min-h-11 items-center rounded-lg bg-civic-accent px-4 text-sm font-semibold text-white" to={`/elections/${election.id}/results`}>View Results</Link></div></td>
+                </tr>
+              ))}
             </tbody>
           </table>
-        </div>
-      </div>
+        </Card>
+      )}
+
+      {tab === 'registry' && <Card className="p-5"><h2 className="text-xl font-bold">Voter Registry</h2><div className="mt-4 grid gap-2">{voterRegistry.slice(0, 10).map((wallet) => <p key={wallet} className="break-all rounded-lg bg-slate-50 p-3 font-mono text-sm">{wallet}</p>)}</div><p className="mt-4 text-sm text-slate-500">Showing 10 per page</p></Card>}
+
+      {tab === 'audit' && <Card className="p-5"><h2 className="text-xl font-bold">Audit Log</h2><div className="mt-5 space-y-4">{auditEvents.map((event) => <div key={event.id} className="border-l-4 border-civic-accent pl-4"><p className="font-bold">{event.type}</p><p className="text-sm text-slate-500">{event.timestamp}</p><p className="break-all font-mono text-xs text-slate-600">{event.tx}</p></div>)}</div></Card>}
+
+      <Modal open={modalOpen} title="Create New Election" onClose={() => setModalOpen(false)}>
+        <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); submit(); }}>
+          <label><span className="mb-2 block text-sm font-semibold">Election Name</span><input required /></label>
+          <label><span className="mb-2 block text-sm font-semibold">Description</span><textarea required rows={3} /></label>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label><span className="mb-2 block text-sm font-semibold">Start Date/Time</span><input required type="datetime-local" /></label>
+            <label><span className="mb-2 block text-sm font-semibold">End Date/Time</span><input required type="datetime-local" /></label>
+          </div>
+          <div className="space-y-3">
+            <p className="font-semibold">Candidates</p>
+            {Array.from({ length: candidateCount }, (_, index) => <div key={index} className="grid gap-3 md:grid-cols-2"><label><span className="mb-1 block text-sm">Name</span><input required /></label><label><span className="mb-1 block text-sm">Party</span><input required /></label></div>)}
+            <Button type="button" variant="secondary" onClick={() => setCandidateCount((count) => count + 1)}>+ Add Candidate</Button>
+          </div>
+          <div className="flex justify-end gap-3"><Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button><Button type="submit">Deploy Election</Button></div>
+        </form>
+      </Modal>
     </div>
   );
-};
-
-export default AdminDashboard;
+}

@@ -1,71 +1,87 @@
-import React from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Badge } from '../components/ui/Badge';
+import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
+import { EmptyState } from '../components/ui/EmptyState';
+import { SkeletonGrid } from '../components/ui/Loader';
+import { useWallet } from '../context/WalletContext';
+import { elections, type ElectionStatus } from '../lib/mockData';
 
-const mockElections = [
-  {
-    id: 1,
-    title: "2026 National Presidential Election",
-    status: "Active",
-    endDate: "Nov 3, 2026",
-    participants: 1245032
-  },
-  {
-    id: 2,
-    title: "City Council Initiative 42",
-    status: "Draft",
-    endDate: "Dec 15, 2026",
-    participants: 0
-  },
-  {
-    id: 3,
-    title: "State Representative District 9",
-    status: "Closed",
-    endDate: "Oct 1, 2026",
-    participants: 45021
-  }
-];
+type Filter = 'All' | ElectionStatus;
 
-const ElectionDiscovery = () => {
+export default function ElectionDiscovery() {
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<Filter>('All');
+  const [loading] = useState(false);
+  const wallet = useWallet();
+
+  const filtered = useMemo(
+    () =>
+      elections.filter((election) => {
+        const matchesFilter = filter === 'All' || election.status === filter;
+        const matchesQuery = `${election.title} ${election.description}`.toLowerCase().includes(query.toLowerCase());
+        return matchesFilter && matchesQuery;
+      }),
+    [filter, query],
+  );
+
   return (
-    <div className="max-w-7xl mx-auto py-8">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Active Elections</h1>
-          <p className="text-gray-500 mt-2">Browse and participate in democratic processes securely.</p>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold">Election Center</h1>
+        <p className="mt-2 text-slate-600">Search ballots, check eligibility, and cast encrypted votes only when every condition is valid.</p>
+      </div>
+      <div className="flex flex-col gap-4 rounded-xl bg-white p-4 shadow-card ring-1 ring-slate-200 lg:flex-row lg:items-center lg:justify-between">
+        <label className="flex-1">
+          <span className="mb-2 block text-sm font-semibold text-slate-700">Search elections</span>
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by election name or description" />
+        </label>
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Election status filters">
+          {(['All', 'Active', 'Draft', 'Closed'] as Filter[]).map((item) => (
+            <button key={item} className={`rounded-lg px-4 py-2 text-sm font-semibold ${filter === item ? 'bg-civic-accent text-white' : 'bg-slate-100 text-slate-700'}`} onClick={() => setFilter(item)} type="button">
+              {item}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {mockElections.map((election) => (
-          <div key={election.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col transition-shadow hover:shadow-md">
-            <div className={`h-2 w-full ${election.status === 'Active' ? 'bg-green-500' : election.status === 'Draft' ? 'bg-yellow-400' : 'bg-gray-400'}`}></div>
-            <div className="p-6 flex-1 flex flex-col">
-              <div className="flex justify-between items-start mb-4">
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${election.status === 'Active' ? 'bg-green-100 text-green-800' : election.status === 'Draft' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'}`}>
-                  {election.status}
-                </span>
-                <span className="text-sm text-gray-500">Closes: {election.endDate}</span>
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">{election.title}</h3>
-              <p className="text-sm text-gray-500 mb-6 flex-1">
-                {election.participants.toLocaleString()} registered voters participating.
-              </p>
-              
-              {election.status === 'Active' ? (
-                <Link to={`/vote/${election.id}`} className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-civic-blue hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-civic-blue">
-                  View Ballot & Vote
-                </Link>
-              ) : (
-                <button disabled className="w-full inline-flex justify-center items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-400 bg-gray-50 cursor-not-allowed">
-                  {election.status === 'Closed' ? 'View Results' : 'Not Yet Open'}
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+      {loading ? <SkeletonGrid /> : filtered.length === 0 ? <EmptyState title="No elections found" message="Try a different search term or status filter." /> : (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((election) => {
+            const canVote = wallet.isConnected && election.eligibility === 'Eligible' && election.status === 'Active';
+            const border = election.status === 'Active' ? 'border-t-civic-success' : election.status === 'Draft' ? 'border-t-civic-warning' : 'border-t-slate-400';
+            return (
+              <Card key={election.id} className={`flex flex-col border-t-4 ${border}`}>
+                <div className="flex flex-1 flex-col p-6">
+                  <div className="flex items-center justify-between gap-3">
+                    <Badge status={election.status} />
+                    <Badge status={election.eligibility} />
+                  </div>
+                  <h2 className="mt-5 text-xl font-bold">{election.title}</h2>
+                  <p className="mt-3 flex-1 text-sm leading-6 text-slate-600">{election.description}</p>
+                  <dl className="mt-5 grid grid-cols-2 gap-3 text-sm">
+                    <div><dt className="font-semibold text-slate-500">Opens</dt><dd>{new Date(election.startDate).toLocaleDateString()}</dd></div>
+                    <div><dt className="font-semibold text-slate-500">Closes</dt><dd>{new Date(election.endDate).toLocaleDateString()}</dd></div>
+                    <div><dt className="font-semibold text-slate-500">Candidates</dt><dd>{election.candidates.length}</dd></div>
+                    <div><dt className="font-semibold text-slate-500">Voters</dt><dd>{election.registeredVoters.toLocaleString()}</dd></div>
+                  </dl>
+                  <div className="mt-6 grid gap-2">
+                    {election.status === 'Closed' ? (
+                      <Link className="inline-flex min-h-11 items-center justify-center rounded-lg bg-civic-accent px-4 text-sm font-semibold text-white" to={`/elections/${election.id}/results`}>View Results</Link>
+                    ) : (
+                      <Link className={`inline-flex min-h-11 items-center justify-center rounded-lg px-4 text-sm font-semibold ${canVote ? 'bg-civic-accent text-white' : 'pointer-events-none bg-slate-200 text-slate-500'}`} to={`/elections/${election.id}/vote`} aria-disabled={!canVote}>
+                        {election.status === 'Draft' ? 'Not Yet Open' : 'View Ballot & Vote'}
+                      </Link>
+                    )}
+                    {!canVote && election.status === 'Active' && <Button variant="secondary" disabled>{wallet.isConnected ? election.eligibility : 'Connect wallet to vote'}</Button>}
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
-};
-
-export default ElectionDiscovery;
+}

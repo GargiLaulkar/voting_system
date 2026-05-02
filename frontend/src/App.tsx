@@ -1,51 +1,54 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import Home from './pages/Home';
-import VoterRegistration from './pages/VoterRegistration';
-import ElectionDiscovery from './pages/ElectionDiscovery';
-import VoteCasting from './pages/VoteCasting';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { Navbar } from './components/Navbar';
+import { ToastProvider } from './components/ui/Toast';
+import { WalletProvider } from './context/WalletContext';
 import AdminDashboard from './pages/AdminDashboard';
+import ElectionDiscovery from './pages/ElectionDiscovery';
+import ElectionResults from './pages/ElectionResults';
+import Home from './pages/Home';
+import NotFound from './pages/NotFound';
+import ReceiptVerification from './pages/ReceiptVerification';
+import VoteCasting from './pages/VoteCasting';
+import VoterRegistration from './pages/VoterRegistration';
 
 function App() {
   return (
-    <Router>
-      <div className="min-h-screen bg-civic-light text-gray-900 font-sans flex flex-col">
-        <header className="bg-white shadow-sm sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <Link to="/" className="text-xl font-bold text-civic-blue flex items-center gap-2">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-              SecureVote
-            </Link>
-            <nav className="flex space-x-6">
-              <Link to="/elections" className="text-gray-600 hover:text-civic-blue font-medium transition-colors">Elections</Link>
-              <Link to="/register" className="text-gray-600 hover:text-civic-blue font-medium transition-colors">Register</Link>
-              <Link to="/admin" className="text-gray-600 hover:text-civic-blue font-medium transition-colors">Admin</Link>
-            </nav>
-            <div>
-              <button className="bg-civic-blue text-white px-4 py-2 rounded-md font-medium hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-civic-blue">
-                Connect Wallet
-              </button>
-            </div>
+    <ToastProvider>
+      <WalletProvider>
+        <BrowserRouter>
+          <div className="min-h-screen bg-civic-bg text-civic-primary">
+            <Navbar />
+            <main className="mx-auto min-h-[calc(100vh-8rem)] max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+              <ErrorBoundary>
+                <div className="animate-page-fade">
+                  <Routes>
+                    <Route path="/" element={<Home />} />
+                    <Route path="/register" element={<VoterRegistration />} />
+                    <Route path="/elections" element={<ElectionDiscovery />} />
+                    <Route path="/elections/:id/vote" element={<VoteCasting />} />
+                    <Route path="/vote/:id" element={<Navigate to="/elections" replace />} />
+                    <Route path="/elections/:id/results" element={<ElectionResults />} />
+                    <Route path="/verify/:receiptHash" element={<ReceiptVerification />} />
+                    <Route path="/admin" element={<AdminDashboard />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </div>
+              </ErrorBoundary>
+            </main>
+            <footer className="border-t border-slate-200 bg-white">
+              <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-6 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+                <p>&copy; {new Date().getFullYear()} SecureVote Blockchain System.</p>
+                <div className="flex gap-4">
+                  <a className="font-semibold text-civic-accent" href="/admin">Audit Trail</a>
+                  <a className="font-semibold text-civic-accent" href="https://github.com/GargiLaulkar/voting_system" target="_blank" rel="noreferrer">GitHub</a>
+                </div>
+              </div>
+            </footer>
           </div>
-        </header>
-
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/register" element={<VoterRegistration />} />
-            <Route path="/elections" element={<ElectionDiscovery />} />
-            <Route path="/vote/:id" element={<VoteCasting />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-          </Routes>
-        </main>
-
-        <footer className="bg-white border-t border-gray-200 mt-auto">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-gray-500 text-sm">
-            &copy; {new Date().getFullYear()} SecureVote Blockchain System. All rights reserved.
-          </div>
-        </footer>
-      </div>
-    </Router>
+        </BrowserRouter>
+      </WalletProvider>
+    </ToastProvider>
   );
 }
 

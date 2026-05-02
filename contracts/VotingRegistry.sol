@@ -34,6 +34,8 @@ contract VotingRegistry is Initializable, AccessControlUpgradeable {
      * @param merkleRoot The new Merkle root.
      */
     function setMerkleRoot(uint256 electionId, bytes32 merkleRoot) external onlyRole(ELECTION_OFFICER_ROLE) {
+        require(electionId != 0, "Invalid election");
+        require(merkleRoot != bytes32(0), "Merkle root required");
         electionMerkleRoots[electionId] = merkleRoot;
         emit MerkleRootUpdated(electionId, merkleRoot);
     }

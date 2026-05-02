@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "set APPDATA=.hardhat-global&& hardhat test",
+    "compile": "set APPDATA=.hardhat-global&& hardhat compile"
   },
   "keywords": [],
   "author": "",
